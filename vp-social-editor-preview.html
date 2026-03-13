@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VON POLL Social Editor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+* { margin: 0; padding: 0; }
+html, body, #root { height: 100%; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useCallback, useEffect } = React;
+
+var VP_LOGO_URI = "VON-POLL-IMMOBILIEN-LOGO-CMYK.jpg";
+
+var C = {
+  b: "#00305E", b7: "#002447", b1: "#b8c5d2", g: "#a28557", gl: "#c8b48a",
+  a: "#3F5EE5", a3: "#4E73F4", a5: "#DEE3F9",
+  g50: "#fcfcfe", g1: "#f5f6fa", g2: "#eef0f6", g5: "#ebeff9", g6: "#cfd2db", g8: "#96999f", g9: "#424346",
+  w: "#fff", r: "#D32F2F", gr: "#10863e",
+};
+
+var COLORS = [
+  { n: "Brand Blue", h: C.b }, { n: "Gold", h: C.g }, { n: "Accent", h: C.a },
+  { n: "Weiss", h: C.w }, { n: "Grau", h: C.g8 }, { n: "Dunkel", h: C.g9 },
+  { n: "Gold Light", h: C.gl }, { n: "Accent Light", h: C.a5 }, { n: "Brand Dark", h: C.b7 },
+];
+var FW = [{ l: "Regular", v: 400 }, { l: "Medium", v: 500 }, { l: "Semi", v: 600 }, { l: "Bold", v: 700 }];
+var FSZ = [14, 16, 18, 20, 24, 28, 32, 40, 48, 56, 64];
+
+function Logo(props) {
+  var w = props.w || 110, h = props.h || 36, white = props.white;
+  return (
+    <svg width={w} height={h} viewBox="0 0 462 133" style={{ display: "block" }}>
+      <rect x="11" y="11" width="110" height="110" fill={C.b} />
+      <text x="66" y="82" textAnchor="middle" fontFamily="Georgia,serif" fontSize="52" fill={C.w} letterSpacing="3">VP</text>
+      <line x1="132" y1="66" x2="460" y2="66" stroke={white ? C.w : C.b} strokeWidth="0.8" opacity="0.4" />
+      <text x="145" y="56" fontFamily="Georgia,serif" fontSize="26" fill={white ? C.w : C.b} letterSpacing="2">VON POLL</text>
+      <text x="145" y="80" fontFamily="Inter,sans-serif" fontSize="14" fill={white ? "rgba(255,255,255,0.6)" : C.g8} letterSpacing="4">IMMOBILIEN</text>
+    </svg>
+  );
+}
+
+var FMT = {
+  ig_post: { id: "ig_post", n: "Instagram Post", w: 540, h: 675, d: "1080x1350" },
+  ig_story: { id: "ig_story", n: "Instagram Story", w: 360, h: 640, d: "1080x1920" },
+  linkedin: { id: "linkedin", n: "LinkedIn Post", w: 600, h: 340, d: "1200x680" },
+};
+
+var INIT_TPLS = [
+  { id: "t1", n: "Klassisch", f: "ig_post", bg: C.b, els: [
+    { id: "bg_img", t: "image", x: 0, y: 0, w: 600, h: 510, src: null, lk: false, lb: "Objektbild" },
+    { id: "ov", t: "rect", x: 0, y: 470, w: 540, h: 205, fill: C.b, op: 0.95, lk: true },
+    { id: "gl", t: "rect", x: 30, y: 482, w: 80, h: 3, fill: C.g, lk: true },
+    { id: "headline", t: "text", x: 30, y: 498, w: 480, tx: "Exklusive Immobilie", fs: 28, fw: 700, c: C.w, lk: false },
+    { id: "subline", t: "text", x: 30, y: 538, w: 480, tx: "Musterstadt - 4 Zi - 160 qm", fs: 16, fw: 400, c: C.gl, lk: false },
+    { id: "price", t: "text", x: 30, y: 575, w: 480, tx: "EUR 850.000", fs: 24, fw: 600, c: C.g, lk: false },
+    { id: "logo", t: "logo", x: 380, y: 618, w: 140, h: 40, wh: true, lk: true },
+  ]},
+  { id: "t2", n: "Fullscreen", f: "ig_post", bg: C.b7, els: [
+    { id: "bg_img", t: "image", x: 0, y: 0, w: 600, h: 675, src: null, lk: false, lb: "Objektbild" },
+    { id: "grad", t: "gradient", x: 0, y: 400, w: 540, h: 275, lk: true },
+    { id: "headline", t: "text", x: 30, y: 575, w: 480, tx: "Ihr Traumobjekt", fs: 32, fw: 700, c: C.w, lk: false },
+    { id: "logo", t: "logo", x: 380, y: 625, w: 140, h: 36, wh: true, lk: true },
+  ]},
+  { id: "t3", n: "Story Klassisch", f: "ig_story", bg: C.b, els: [
+    { id: "bg_img", t: "image", x: 0, y: 0, w: 420, h: 640, src: null, lk: false, lb: "Objektbild" },
+    { id: "grad", t: "gradient", x: 0, y: 320, w: 360, h: 320, lk: true },
+    { id: "headline", t: "text", x: 24, y: 450, w: 312, tx: "Traumvilla", fs: 32, fw: 700, c: C.w, lk: false },
+    { id: "price", t: "text", x: 24, y: 575, w: 312, tx: "EUR 1.200.000", fs: 22, fw: 600, c: C.g, lk: false },
+    { id: "logo", t: "logo", x: 220, y: 588, w: 120, h: 34, wh: true, lk: true },
+  ]},
+  { id: "t4", n: "LinkedIn Split", f: "linkedin", bg: C.w, els: [
+    { id: "bg_img", t: "image", x: 0, y: 0, w: 340, h: 380, src: null, lk: false, lb: "Objektbild" },
+    { id: "sb", t: "rect", x: 280, y: 0, w: 320, h: 340, fill: C.b, op: 1, lk: true },
+    { id: "headline", t: "text", x: 304, y: 80, w: 272, tx: "Neueste Akquisition", fs: 26, fw: 700, c: C.w, lk: false },
+    { id: "price", t: "text", x: 304, y: 220, w: 272, tx: "EUR 2.450.000", fs: 22, fw: 600, c: C.g, lk: false },
+    { id: "logo", t: "logo", x: 440, y: 288, w: 140, h: 36, wh: true, lk: true },
+  ]},
+];
+
+var OBJ = {
+  "VP-2024-001": { title: "Elegante Stadtvilla", loc: "Hamburg-Blankenese", rooms: 6, area: 280, price: "EUR 2.950.000", img: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80" },
+  "VP-2024-002": { title: "Modernes Penthouse", loc: "Hamburg-Rotherbaum", rooms: 4, price: "EUR 1.850.000", area: 185, img: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&q=80" },
+  "VP-2024-003": { title: "Charmantes Landhaus", loc: "Hamburg-Nienstedten", rooms: 8, area: 420, price: "EUR 4.200.000", img: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80" },
+};
+
+// Shape SVG previews for the shape buttons
+function ShapeIcon(props) {
+  var s = props.shape, sz = props.size || 20, clr = props.color || C.g9;
+  if (s === "rect") return <svg width={sz} height={sz} viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke={clr} strokeWidth="2"/></svg>;
+  if (s === "circle") return <svg width={sz} height={sz} viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke={clr} strokeWidth="2"/></svg>;
+  if (s === "line") return <svg width={sz} height={sz} viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" stroke={clr} strokeWidth="2"/></svg>;
+  if (s === "triangle") return <svg width={sz} height={sz} viewBox="0 0 24 24"><polygon points="12,3 22,21 2,21" fill="none" stroke={clr} strokeWidth="2"/></svg>;
+  if (s === "arrow") return <svg width={sz} height={sz} viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" stroke={clr} strokeWidth="2"/><polyline points="14,7 19,12 14,17" fill="none" stroke={clr} strokeWidth="2"/></svg>;
+  if (s === "star") return <svg width={sz} height={sz} viewBox="0 0 24 24"><polygon points="12,2 15,9 22,9 16.5,14 18.5,21 12,17 5.5,21 7.5,14 2,9 9,9" fill="none" stroke={clr} strokeWidth="2"/></svg>;
+  return null;
+}
+
+var SHAPES = [
+  { id: "rect", n: "Rechteck" }, { id: "circle", n: "Kreis" }, { id: "line", n: "Linie" },
+  { id: "triangle", n: "Dreieck" }, { id: "arrow", n: "Pfeil" }, { id: "star", n: "Stern" },
+];
+
+function App() {
+  var _s = useState, _r = useRef, _cb = useCallback, _e = useEffect;
+  var _a = _s(false), admin = _a[0], setAdmin = _a[1];
+  var _b = _s(false), loginOpen = _b[0], setLoginOpen = _b[1];
+  var _c = _s(""), pw = _c[0], setPw = _c[1];
+  var _d = _s(false), pwErr = _d[0], setPwErr = _d[1];
+  var _f = _s(JSON.parse(JSON.stringify(INIT_TPLS))), tpls = _f[0], setTpls = _f[1];
+  var _g = _s("ig_post"), fmt = _g[0], setFmt = _g[1];
+  var _h = _s(null), tplId = _h[0], setTplId = _h[1];
+  var _i = _s([]), els = _i[0], setEls = _i[1];
+  var _j = _s(C.b), bg = _j[0], setBg = _j[1];
+  var _k = _s(null), selId = _k[0], setSelId = _k[1];
+  var _l = _s(null), drag = _l[0], setDrag = _l[1];
+  var _m = _s("erstellen"), panel = _m[0], setPanel = _m[1];
+  var _n = _s(""), objIn = _n[0], setObjIn = _n[1];
+  var _o = _s(null), obj = _o[0], setObj = _o[1];
+  var _p = _s(1), zoom = _p[0], setZoom = _p[1];
+  var _q = _s(""), newN = _q[0], setNewN = _q[1];
+  var _rr = _s(""), msg = _rr[0], setMsg = _rr[1];
+  var _t = _s(null), upId = _t[0], setUpId = _t[1];
+  var _u = _s([
+    { id: "a1", n: "Gold Divider", t: "rect", preview: C.g },
+    { id: "a2", n: "Brand Overlay", t: "rect", preview: C.b },
+  ]), assets = _u[0], setAssets = _u[1];
+  var fRef = _r(null);
+  var assetRef = _r(null);
+
+  var f = FMT[fmt];
+  var sel = els.find(function(e) { return e.id === selId; });
+  function ok(el) { return admin || !el.lk; }
+  var ftpls = tpls.filter(function(t) { return t.f === fmt; });
+
+  function loadTpl(t) { setTplId(t.id); setBg(t.bg); setEls(JSON.parse(JSON.stringify(t.els))); setSelId(null); }
+  function goBlank() { setTplId(null); setEls([]); setSelId(null); }
+  function swFmt(id) { setFmt(id); setBg(C.b); goBlank(); }
+
+  function applyObj(e, o) {
+    e.forEach(function(el) {
+      if (el.id === "headline" && o.title) el.tx = o.title;
+      if (el.id === "subline" && o.loc) el.tx = o.loc + " - " + o.rooms + " Zi - " + o.area + " qm";
+      if (el.id === "price" && o.price) el.tx = o.price;
+      if (el.id === "bg_img" && o.img) el.src = o.img;
+    });
+  }
+  function doLoad() { var o = OBJ[objIn.trim().toUpperCase()]; if (o) { setObj(o); var n = els.map(function(e) { return Object.assign({}, e); }); applyObj(n, o); setEls(n); } }
+
+  function onFile(e) { var file = e.target.files && e.target.files[0]; if (!file || !upId) return; var r = new FileReader(); r.onload = function(ev) { setEls(function(p) { return p.map(function(el) { return el.id === upId ? Object.assign({}, el, { src: ev.target.result }) : el; }); }); }; r.readAsDataURL(file); e.target.value = ""; }
+  function onAssetFile(e) { var file = e.target.files && e.target.files[0]; if (!file) return; var r = new FileReader(); r.onload = function(ev) { setAssets(function(p) { return p.concat({ id: "a" + Date.now(), n: file.name.replace(/\.[^.]+$/, ""), t: "image", preview: ev.target.result }); }); }; r.readAsDataURL(file); e.target.value = ""; }
+
+  var startDrag = _cb(function(e, id, mode, corner) {
+    var el = els.find(function(x) { return x.id === id; });
+    if (!ok(el)) return;
+    e.stopPropagation(); e.preventDefault();
+    setDrag({ id: id, mode: mode, startX: e.clientX, startY: e.clientY, ox: el.x, oy: el.y, ow: el.w, oh: el.h || 1, corner: corner, ratio: el.w / (el.h || 1) });
+    setSelId(id);
+  }, [els, admin]);
+
+  _e(function() {
+    if (!drag) return;
+    function onM(e) {
+      var dx = (e.clientX - drag.startX) / zoom, dy = (e.clientY - drag.startY) / zoom;
+      if (drag.mode === "move") {
+        setEls(function(p) { return p.map(function(el) { return el.id === drag.id ? Object.assign({}, el, { x: Math.round(drag.ox + dx), y: Math.round(drag.oy + dy) }) : el; }); });
+      } else {
+        setEls(function(p) { return p.map(function(el) {
+          if (el.id !== drag.id) return el;
+          var nw = drag.ow, nh = drag.oh, nx = drag.ox, ny = drag.oy;
+          if (drag.corner === "se") { nw = Math.max(30, drag.ow + dx); nh = Math.round(nw / drag.ratio); }
+          else if (drag.corner === "sw") { nw = Math.max(30, drag.ow - dx); nh = Math.round(nw / drag.ratio); nx = drag.ox + drag.ow - nw; }
+          else if (drag.corner === "ne") { nw = Math.max(30, drag.ow + dx); nh = Math.round(nw / drag.ratio); ny = drag.oy + drag.oh - nh; }
+          else if (drag.corner === "nw") { nw = Math.max(30, drag.ow - dx); nh = Math.round(nw / drag.ratio); nx = drag.ox + drag.ow - nw; ny = drag.oy + drag.oh - nh; }
+          return Object.assign({}, el, { w: Math.round(nw), h: Math.round(nh), x: Math.round(nx), y: Math.round(ny) });
+        }); });
+      }
+    }
+    function onU() { setDrag(null); }
+    window.addEventListener("mousemove", onM);
+    window.addEventListener("mouseup", onU);
+    return function() { window.removeEventListener("mousemove", onM); window.removeEventListener("mouseup", onU); };
+  }, [drag, zoom]);
+
+  function upd(id, k, v) { setEls(function(p) { return p.map(function(el) { return el.id === id ? Object.assign({}, el, { [k]: v }) : el; }); }); }
+  function addTx() { var n = { id: "tx" + Date.now(), t: "text", x: 40, y: 200, w: 260, tx: "Neuer Text", fs: 22, fw: 600, c: C.w, lk: false }; setEls(function(p) { return p.concat(n); }); setSelId(n.id); }
+  function addLogo(white) { var n = { id: "lg" + Date.now(), t: "logo", x: 40, y: 300, w: 140, h: 40, wh: white, lk: false }; setEls(function(p) { return p.concat(n); }); setSelId(n.id); }
+  function addShape(shape) {
+    var n = { id: "sh" + Date.now(), t: "shape", x: 60, y: 200, w: 120, h: 120, shape: shape, fill: "none", stroke: C.w, strokeW: 3, lk: false };
+    if (shape === "line" || shape === "arrow") { n.w = 160; n.h = 4; n.stroke = C.g; n.fill = C.g; }
+    setEls(function(p) { return p.concat(n); }); setSelId(n.id);
+  }
+  function addRect() { var n = { id: "rc" + Date.now(), t: "rect", x: 40, y: 200, w: 200, h: 80, fill: C.b, op: 1, lk: false }; setEls(function(p) { return p.concat(n); }); setSelId(n.id); }
+  function placeAsset(a) {
+    if (a.t === "rect") { var n = { id: "ra" + Date.now(), t: "rect", x: 30, y: 200, w: 200, h: 4, fill: a.preview, op: 1, lk: false }; setEls(function(p) { return p.concat(n); }); setSelId(n.id); }
+    else { var n2 = { id: "ia" + Date.now(), t: "image", x: 30, y: 100, w: 200, h: 150, src: a.preview, lk: false, lb: a.n }; setEls(function(p) { return p.concat(n2); }); setSelId(n2.id); }
+  }
+  function del(id) { if (!ok(els.find(function(e) { return e.id === id; }))) return; setEls(function(p) { return p.filter(function(e) { return e.id !== id; }); }); if (selId === id) setSelId(null); }
+  function togLk(id) { if (!admin) return; setEls(function(p) { return p.map(function(el) { return el.id === id ? Object.assign({}, el, { lk: !el.lk }) : el; }); }); }
+  function saveTpl() { if (!newN.trim()) return; var t = { id: "t" + Date.now(), n: newN.trim(), f: fmt, bg: bg, els: JSON.parse(JSON.stringify(els)) }; setTpls(function(p) { return p.concat(t); }); setTplId(t.id); setNewN(""); setMsg("Gespeichert!"); setTimeout(function() { setMsg(""); }, 2000); }
+  function updTpl() { if (!tplId) return; setTpls(function(p) { return p.map(function(t) { return t.id === tplId ? Object.assign({}, t, { bg: bg, els: JSON.parse(JSON.stringify(els)) }) : t; }); }); setMsg("Aktualisiert!"); setTimeout(function() { setMsg(""); }, 2000); }
+  function doLogin() { if (pw === "vonpoll2024") { setAdmin(true); setLoginOpen(false); } else { setPwErr(true); setTimeout(function() { setPwErr(false); }, 1500); } }
+  function moveLayer(id, dir) { setEls(function(p) { var idx = p.findIndex(function(e) { return e.id === id; }); if (idx < 0) return p; var ni = idx + dir; if (ni < 0 || ni >= p.length) return p; var arr = p.slice(); var tmp = arr[idx]; arr[idx] = arr[ni]; arr[ni] = tmp; return arr; }); }
+
+  // Render canvas element
+  function Hdl(props) {
+    var pos = { se: { bottom: -4, right: -4, cursor: "nwse-resize" }, sw: { bottom: -4, left: -4, cursor: "nesw-resize" }, ne: { top: -4, right: -4, cursor: "nesw-resize" }, nw: { top: -4, left: -4, cursor: "nwse-resize" } };
+    return <div onMouseDown={function(e) { startDrag(e, props.id, "resize", props.c); }} style={Object.assign({ position: "absolute", width: 8, height: 8, background: C.a, border: "2px solid " + C.w, borderRadius: 2, zIndex: 100 }, pos[props.c])} />;
+  }
+
+  function rEl(el) {
+    var s = selId === el.id, e = ok(el);
+    var base = { position: "absolute", left: el.x, top: el.y, width: el.w, cursor: e ? "move" : "default", outline: s ? "2px solid " + C.a : "none", outlineOffset: 1, zIndex: s ? 50 : "auto" };
+    var clk = function(ev) { ev.stopPropagation(); setSelId(el.id); };
+    var md = function(ev) { if (e) startDrag(ev, el.id, "move"); };
+    var handles = s && e ? <><Hdl id={el.id} c="se" /><Hdl id={el.id} c="sw" /><Hdl id={el.id} c="ne" /><Hdl id={el.id} c="nw" /></> : null;
+
+    if (el.t === "rect") return <div key={el.id} style={Object.assign({}, base, { height: el.h, backgroundColor: el.fill, opacity: el.op || 1 })} onClick={clk} onMouseDown={md} />;
+    if (el.t === "gradient") return <div key={el.id} style={Object.assign({}, base, { height: el.h, background: "linear-gradient(to bottom, transparent, " + C.b + ")", pointerEvents: "none" })} />;
+    if (el.t === "shape") return (
+      <div key={el.id} style={Object.assign({}, base, { height: el.h })} onClick={clk} onMouseDown={md}>
+        <svg width={el.w} height={el.h} viewBox={"0 0 " + el.w + " " + el.h} style={{ display: "block" }}>
+          {el.shape === "rect" && <rect x="1" y="1" width={el.w - 2} height={el.h - 2} rx="4" fill={el.fill} stroke={el.stroke} strokeWidth={el.strokeW} />}
+          {el.shape === "circle" && <ellipse cx={el.w / 2} cy={el.h / 2} rx={el.w / 2 - 2} ry={el.h / 2 - 2} fill={el.fill} stroke={el.stroke} strokeWidth={el.strokeW} />}
+          {el.shape === "line" && <line x1="0" y1={el.h / 2} x2={el.w} y2={el.h / 2} stroke={el.stroke} strokeWidth={el.strokeW} />}
+          {el.shape === "triangle" && <polygon points={el.w / 2 + ",2 " + (el.w - 2) + "," + (el.h - 2) + " 2," + (el.h - 2)} fill={el.fill} stroke={el.stroke} strokeWidth={el.strokeW} />}
+          {el.shape === "arrow" && <><line x1="0" y1={el.h / 2} x2={el.w - 10} y2={el.h / 2} stroke={el.stroke} strokeWidth={el.strokeW} /><polygon points={el.w + "," + el.h / 2 + " " + (el.w - 14) + ",0 " + (el.w - 14) + "," + el.h} fill={el.stroke} /></>}
+          {el.shape === "star" && <polygon points={starPoints(el.w, el.h)} fill={el.fill} stroke={el.stroke} strokeWidth={el.strokeW} />}
+        </svg>
+        {handles}
+      </div>
+    );
+    if (el.t === "image") {
+      var visW = Math.min(el.w, f.w - Math.max(0, el.x));
+      var visH = Math.min(el.h, f.h - Math.max(0, el.y));
+      var offX = Math.max(0, -el.x);
+      var offY = Math.max(0, -el.y);
+      return (
+      <div key={el.id} style={Object.assign({}, base, { height: el.h })} onClick={clk} onMouseDown={md}>
+        {el.src ? <img src={el.src} alt="" draggable={false} style={{ width: "100%", height: "100%", display: "block", pointerEvents: "none" }} />
+          : <div style={{ position: "absolute", left: offX, top: offY, width: visW, height: visH, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, color: C.b1, background: C.b7 }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.5 }}><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></svg>
+            <span style={{ fontSize: 12, fontWeight: 500 }}>{el.lb || "Bild"}</span>
+            {e && <button onClick={function(ev) { ev.stopPropagation(); setUpId(el.id); fRef.current.click(); }} style={{ padding: "6px 16px", fontSize: 12, fontWeight: 500, background: "rgba(255,255,255,0.15)", color: C.w, border: "1px solid rgba(255,255,255,0.3)", borderRadius: 5, cursor: "pointer", marginTop: 2 }}>Bild hochladen</button>}
+          </div>}
+        {handles}
+      </div>
+    ); }
+    if (el.t === "text") return <div key={el.id} style={Object.assign({}, base, { fontFamily: "'Inter',sans-serif", fontSize: el.fs, fontWeight: el.fw, color: el.c, lineHeight: 1.3, whiteSpace: "pre-wrap", userSelect: "none" })} onClick={clk} onMouseDown={md}>{el.tx}</div>;
+    if (el.t === "logo") return (
+      <div key={el.id} style={Object.assign({}, base, { height: el.h })} onClick={clk} onMouseDown={md}>
+        <Logo white={el.wh} w={el.w} h={el.h} />
+        {handles}
+      </div>
+    );
+    return null;
+  }
+
+  function starPoints(w, h) {
+    var cx = w / 2, cy = h / 2, or2 = Math.min(w, h) / 2 - 2, ir = or2 * 0.4, pts = [];
+    for (var i = 0; i < 10; i++) { var a = Math.PI / 2 + i * Math.PI / 5; var r2 = i % 2 === 0 ? or2 : ir; pts.push(Math.round(cx + r2 * Math.cos(a)) + "," + Math.round(cy - r2 * Math.sin(a))); }
+    return pts.join(" ");
+  }
+
+  var inp = { width: "100%", padding: "8px 12px", border: "1px solid " + C.g5, borderRadius: 5, fontFamily: "inherit", fontSize: 13, color: C.b, background: C.w, boxSizing: "border-box" };
+  var lbl = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: C.g8, marginBottom: 10 };
+  function tbtn(a) { return { flex: 1, padding: "8px 6px", fontFamily: "inherit", fontSize: 12, fontWeight: 500, border: "none", background: a ? C.a : C.w, color: a ? C.w : C.g9, cursor: "pointer" }; }
+  var btn1 = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 20px", fontFamily: "inherit", fontSize: 14, fontWeight: 600, background: C.a3, color: C.w, border: "none", borderRadius: 5, cursor: "pointer", width: "100%" };
+  var btn2 = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 14px", fontFamily: "inherit", fontSize: 12, fontWeight: 500, background: C.w, color: C.g9, border: "1px solid " + C.g5, borderRadius: 5, cursor: "pointer", width: "100%" };
+  var sec = { borderBottom: "1px solid " + C.g6, paddingBottom: 16, marginBottom: 14 };
+  var tabs = ["erstellen", "vorlagen", "elemente", "ebenen"];
+  var tabN = { erstellen: "Erstellen", vorlagen: "Vorlagen", elemente: "Elemente", ebenen: "Ebenen" };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", fontFamily: "'Inter',sans-serif", fontFeatureSettings: "'cv06' on,'cv04' on,'cv02' on,'cv01' on,'cv03' on,'cv05' on,'case' on", background: C.g50, color: C.b }}>
+      <style>{"@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'); *, *::before, *::after { box-sizing: border-box; } button, input, textarea, select { font-family: inherit; font-feature-settings: inherit; }"}</style>
+      <input type="file" ref={fRef} accept="image/*" onChange={onFile} style={{ display: "none" }} />
+      <input type="file" ref={assetRef} accept="image/*" onChange={onAssetFile} style={{ display: "none" }} />
+
+      {/* Login */}
+      {loginOpen && <div style={{ position: "fixed", inset: 0, background: "rgba(0,48,94,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
+        <div style={{ background: C.w, borderRadius: 8, padding: 32, width: 340 }}>
+          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>Admin-Zugang</div>
+          <input type="password" value={pw} onChange={function(e) { setPw(e.target.value); }} placeholder="Passwort" onKeyDown={function(e) { if (e.key === "Enter") doLogin(); }} style={Object.assign({}, inp, { marginBottom: 12, borderColor: pwErr ? C.r : C.g5 })} />
+          {pwErr && <div style={{ fontSize: 12, color: C.r, marginBottom: 8 }}>Falsches Passwort</div>}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={function() { setLoginOpen(false); }} style={btn2}>Abbrechen</button>
+            <button onClick={doLogin} style={btn1}>Anmelden</button>
+          </div>
+          <div style={{ marginTop: 10, fontSize: 11, color: C.g8, textAlign: "center" }}>Demo: vonpoll2024</div>
+        </div>
+      </div>}
+
+      {/* Header */}
+      <div style={{ background: C.b, padding: "0 32px", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <img src={VP_LOGO_URI} alt="VON POLL IMMOBILIEN" style={{ height: 30, width: "auto", display: "block" }} />
+          <span style={{ width: 1, height: 20, background: "rgba(255,255,255,0.3)" }} />
+          <span style={{ color: C.w, fontSize: 16, fontWeight: 600 }}>Michelles Editor</span>
+          {admin && <span style={{ fontSize: 10, padding: "2px 8px", background: C.g, color: C.b, borderRadius: 3, fontWeight: 700 }}>ADMIN</span>}
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {!admin && <button onClick={function() { setLoginOpen(true); }} style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.8)", fontSize: 12, padding: "5px 12px", borderRadius: 5, cursor: "pointer" }}>Admin</button>}
+          {admin && <button onClick={function() { setAdmin(false); }} style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.8)", fontSize: 12, padding: "5px 12px", borderRadius: 5, cursor: "pointer" }}>Abmelden</button>}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+        {/* Sidebar */}
+        <div style={{ width: 350, background: C.w, borderRight: "1px solid " + C.g5, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", borderBottom: "1px solid " + C.g5, flexShrink: 0 }}>
+            {tabs.map(function(t) { return <button key={t} onClick={function() { setPanel(t); }} style={{ flex: 1, padding: "11px 2px", fontSize: 10, fontWeight: 600, cursor: "pointer", border: "none", borderBottom: panel === t ? "2px solid " + C.a : "2px solid transparent", background: C.w, color: panel === t ? C.a : C.g8, letterSpacing: "0.02em" }}>{tabN[t]}</button>; })}
+          </div>
+          <div style={{ padding: 20, flex: 1 }}>
+
+            {/* ═══ TAB 1: ERSTELLEN ═══ */}
+            {panel === "erstellen" && <div>
+              <div style={sec}>
+                <div style={lbl}>Format wahlen</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {Object.values(FMT).map(function(x) { return (
+                    <button key={x.id} onClick={function() { swFmt(x.id); setPanel("erstellen"); }} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 5, cursor: "pointer", border: fmt === x.id ? "2px solid " + C.a : "2px solid " + C.g2, background: fmt === x.id ? C.a5 : C.w, textAlign: "left" }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: C.g9 }}>{x.n}</span>
+                      <span style={{ fontSize: 11, color: C.g8 }}>{x.d}</span>
+                    </button>
+                  ); })}
+                </div>
+              </div>
+              <div style={sec}>
+                <div style={lbl}>Objektdaten laden</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input value={objIn} onChange={function(e) { setObjIn(e.target.value); }} placeholder="VP-2024-001" style={inp} onKeyDown={function(e) { if (e.key === "Enter") doLoad(); }} />
+                  <button onClick={doLoad} style={Object.assign({}, btn1, { width: "auto", padding: "8px 14px", fontSize: 12 })}>Laden</button>
+                </div>
+                {obj && <div style={{ marginTop: 8, padding: 8, background: "#e8f5e9", borderRadius: 5, fontSize: 12, color: "#2e7d32" }}>OK: {obj.title}</div>}
+                <div style={{ marginTop: 6, fontSize: 10, color: C.g8 }}>Demo: VP-2024-001, -002, -003</div>
+              </div>
+              {admin && <div style={{ padding: 12, background: "#fff3e0", borderRadius: 5 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.g, marginBottom: 6 }}>Admin: Hintergrundfarbe</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {COLORS.map(function(c) { return <button key={c.h} onClick={function() { setBg(c.h); }} style={{ width: 26, height: 26, borderRadius: "50%", border: bg === c.h ? "3px solid " + C.b : "2px solid rgba(0,0,0,0.08)", background: c.h, cursor: "pointer" }} />; })}
+                </div>
+              </div>}
+            </div>}
+
+            {/* ═══ TAB 2: VORLAGEN ═══ */}
+            {panel === "vorlagen" && <div>
+              <div style={sec}>
+                <div style={lbl}>Format</div>
+                <div style={{ display: "flex", border: "1px solid " + C.g5, borderRadius: 5, overflow: "hidden" }}>
+                  {Object.values(FMT).map(function(x) { return <button key={x.id} onClick={function() { setFmt(x.id); }} style={tbtn(fmt === x.id)}>{x.n.replace(" Post", "")}</button>; })}
+                </div>
+              </div>
+              <div style={lbl}>Vorlagen ({ftpls.length})</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+                {ftpls.map(function(t) { return (
+                  <div key={t.id} style={{ position: "relative" }}>
+                    <button onClick={function() { loadTpl(t); }} style={{ border: tplId === t.id ? "2px solid " + C.a : "2px solid " + C.g2, borderRadius: 5, cursor: "pointer", overflow: "hidden", background: C.g1, padding: 0, width: "100%" }}>
+                      <div style={{ aspectRatio: "4/3", background: t.bg, position: "relative", overflow: "hidden" }}>
+                        {t.els.filter(function(e) { return e.t === "text"; }).slice(0, 2).map(function(e, i) { return <div key={i} style={{ position: "absolute", left: 5, top: 5 + i * 12, fontSize: 5, color: e.c, fontWeight: e.fw, whiteSpace: "nowrap", overflow: "hidden", maxWidth: "85%" }}>{e.tx}</div>; })}
+                      </div>
+                      <div style={{ fontSize: 11, fontWeight: 500, padding: "5px 6px", textAlign: "center", color: C.g9, background: C.w }}>{t.n}</div>
+                    </button>
+                    {admin && <button onClick={function() { setTpls(function(p) { return p.filter(function(x) { return x.id !== t.id; }); }); if (tplId === t.id) goBlank(); }} style={{ position: "absolute", top: 4, right: 4, width: 18, height: 18, borderRadius: "50%", background: "rgba(0,0,0,0.5)", color: C.w, border: "none", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>x</button>}
+                  </div>
+                ); })}
+              </div>
+              {admin && <div style={{ padding: 12, background: "#fff3e0", borderRadius: 5 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.g, marginBottom: 8 }}>Admin: Vorlage speichern</div>
+                {tplId && <button onClick={updTpl} style={Object.assign({}, btn1, { marginBottom: 8, fontSize: 12 })}>{(tpls.find(function(t) { return t.id === tplId; }) || {}).n || ""} aktualisieren</button>}
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input value={newN} onChange={function(e) { setNewN(e.target.value); }} placeholder="Neuer Name" style={inp} onKeyDown={function(e) { if (e.key === "Enter") saveTpl(); }} />
+                  <button onClick={saveTpl} style={Object.assign({}, btn1, { width: "auto", padding: "8px 12px", fontSize: 12, background: C.gr })}>+ Neu</button>
+                </div>
+                {msg && <div style={{ marginTop: 6, fontSize: 12, color: C.gr, fontWeight: 600 }}>{msg}</div>}
+              </div>}
+            </div>}
+
+            {/* ═══ TAB 3: ELEMENTE ═══ */}
+            {panel === "elemente" && <div>
+              {/* Freie Formen */}
+              <div style={sec}>
+                <div style={lbl}>Freie Formen</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                  {SHAPES.map(function(sh) { return (
+                    <button key={sh.id} onClick={function() { addShape(sh.id); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "10px 4px", borderRadius: 5, border: "1px solid " + C.g2, background: C.g1, cursor: "pointer" }}>
+                      <ShapeIcon shape={sh.id} size={22} color={C.g9} />
+                      <span style={{ fontSize: 9, color: C.g8, fontWeight: 500 }}>{sh.n}</span>
+                    </button>
+                  ); })}
+                </div>
+              </div>
+
+              {/* Text */}
+              <div style={sec}>
+                <div style={lbl}>Text</div>
+                <button onClick={addTx} style={btn2}>+ Text hinzufuegen</button>
+              </div>
+
+              {/* Logos */}
+              <div style={sec}>
+                <div style={lbl}>Logos</div>
+                <button onClick={function() { addLogo(true); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", background: C.b7, border: "1px solid " + C.g2, borderRadius: 5, cursor: "pointer", marginBottom: 6 }}>
+                  <div style={{ width: 56, height: 20, display: "flex", alignItems: "center" }}><Logo white={true} w={56} h={18} /></div>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: C.w }}>VP Logo weiss</span>
+                </button>
+                <button onClick={function() { addLogo(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", background: C.w, border: "1px solid " + C.g2, borderRadius: 5, cursor: "pointer" }}>
+                  <div style={{ width: 56, height: 20, display: "flex", alignItems: "center" }}><Logo white={false} w={56} h={18} /></div>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: C.g9 }}>VP Logo blau</span>
+                </button>
+              </div>
+
+              {/* Assets */}
+              <div style={sec}>
+                <div style={lbl}>Assets</div>
+                {assets.map(function(a) { return (
+                  <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <button onClick={function() { placeAsset(a); }} style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, padding: "7px 10px", background: C.g1, border: "1px solid " + C.g2, borderRadius: 5, cursor: "pointer", textAlign: "left" }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 4, flexShrink: 0, background: a.t === "rect" ? a.preview : C.b7, overflow: "hidden" }}>{a.t === "image" && <img src={a.preview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}</div>
+                      <span style={{ fontSize: 11, fontWeight: 500, color: C.g9 }}>{a.n}</span>
+                    </button>
+                    {admin && <button onClick={function() { setAssets(function(p) { return p.filter(function(x) { return x.id !== a.id; }); }); }} style={{ padding: 3, background: "none", border: "none", color: C.r, cursor: "pointer", opacity: 0.5, fontSize: 12 }}>x</button>}
+                  </div>
+                ); })}
+                {admin && <button onClick={function() { assetRef.current.click(); }} style={Object.assign({}, btn2, { marginTop: 4, background: "#fff3e0", borderColor: C.g + "40", color: C.g })}>+ Asset hochladen</button>}
+              </div>
+
+              {/* Bild hochladen */}
+              <div>
+                <div style={lbl}>Bild hochladen</div>
+                <button onClick={function() { var n = { id: "img" + Date.now(), t: "image", x: 20, y: 20, w: 300, h: 200, src: null, lk: false, lb: "Hochgeladen" }; setEls(function(p) { return p.concat(n); }); setUpId(n.id); setSelId(n.id); fRef.current.click(); }} style={btn2}>
+                  + Bild vom Computer
+                </button>
+              </div>
+            </div>}
+
+            {/* ═══ TAB 4: EBENEN ═══ */}
+            {panel === "ebenen" && <div>
+              <div style={lbl}>Ebenen ({els.length})</div>
+              {els.length === 0 && <div style={{ textAlign: "center", padding: "24px 12px", color: C.g8, fontSize: 12 }}>Noch keine Elemente. Erstelle Elemente im "Elemente"-Tab.</div>}
+              {els.slice().reverse().map(function(el, ri) {
+                var idx = els.length - 1 - ri;
+                return (
+                <div key={el.id} onClick={function() { setSelId(el.id); }} style={{ display: "flex", alignItems: "center", gap: 4, padding: "7px 8px", borderRadius: 4, cursor: "pointer", background: selId === el.id ? C.a5 : C.w, border: "1px solid " + (selId === el.id ? C.a + "30" : C.g2), marginBottom: 3 }}>
+                  <span style={{ width: 20, fontSize: 9, color: C.g8, textAlign: "center", flexShrink: 0 }}>{el.t === "text" ? "T" : el.t === "image" ? "IMG" : el.t === "logo" ? "LP" : el.t === "shape" ? "F" : "R"}</span>
+                  <span style={{ fontSize: 11, fontWeight: 500, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: C.g9 }}>{el.t === "text" ? (el.tx || "").substring(0, 20) : el.id}</span>
+                  {/* Move buttons */}
+                  <button onClick={function(ev) { ev.stopPropagation(); moveLayer(el.id, 1); }} title="Nach oben" style={{ padding: "1px 4px", fontSize: 10, background: C.g1, border: "1px solid " + C.g2, borderRadius: 3, cursor: "pointer", color: C.g9 }}>^</button>
+                  <button onClick={function(ev) { ev.stopPropagation(); moveLayer(el.id, -1); }} title="Nach unten" style={{ padding: "1px 4px", fontSize: 10, background: C.g1, border: "1px solid " + C.g2, borderRadius: 3, cursor: "pointer", color: C.g9 }}>v</button>
+                  {/* Lock */}
+                  {admin && <button onClick={function(ev) { ev.stopPropagation(); togLk(el.id); }} style={{ padding: "2px 5px", fontSize: 9, borderRadius: 3, border: "none", cursor: "pointer", background: el.lk ? "#fff3e0" : C.g1, color: el.lk ? C.g : C.g8, fontWeight: 600 }}>{el.lk ? "Locked" : "Open"}</button>}
+                  {!admin && el.lk && <span style={{ fontSize: 8, color: C.g, flexShrink: 0, padding: "2px 4px", background: "#fff3e0", borderRadius: 3 }}>Locked</span>}
+                  {/* Delete */}
+                  {ok(el) && <button onClick={function(ev) { ev.stopPropagation(); del(el.id); }} style={{ padding: "1px 5px", background: "none", border: "none", color: C.r, cursor: "pointer", opacity: 0.5, fontSize: 12 }}>x</button>}
+                </div>
+              ); })}
+            </div>}
+          </div>
+        </div>
+
+        {/* Canvas */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, overflow: "auto" }}>
+          <div onClick={function() { setSelId(null); }} style={{ width: f.w, height: f.h, position: "relative", background: bg, overflow: "hidden", transform: "scale(" + zoom + ")", transformOrigin: "center", boxShadow: "0 8px 24px rgba(0,48,94,0.16)", flexShrink: 0 }}>
+            {els.map(rEl)}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16 }}>
+            <button onClick={function() { setZoom(function(z) { return Math.max(0.4, z - 0.1); }); }} style={Object.assign({}, btn2, { width: "auto", padding: "4px 10px" })}>-</button>
+            <span style={{ fontSize: 12, color: C.g8, width: 40, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
+            <button onClick={function() { setZoom(function(z) { return Math.min(2, z + 0.1); }); }} style={Object.assign({}, btn2, { width: "auto", padding: "4px 10px" })}>+</button>
+            <span style={{ fontSize: 11, color: C.g8, marginLeft: 8 }}>{f.n} ({f.d})</span>
+          </div>
+        </div>
+
+        {/* Properties */}
+        <div style={{ width: 260, background: C.w, borderLeft: "1px solid " + C.g5, overflowY: "auto", padding: 20 }}>
+          <div style={lbl}>Eigenschaften</div>
+          {sel ? <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>{sel.id}</span>
+              {admin && <button onClick={function() { togLk(sel.id); }} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 3, border: "none", cursor: "pointer", background: sel.lk ? "#fff3e0" : C.g1, color: sel.lk ? C.g : C.g8, fontWeight: 600 }}>{sel.lk ? "Locked" : "Open"}</button>}
+            </div>
+            <div style={{ fontSize: 11, color: C.g8, marginBottom: 14 }}>{sel.t}{sel.lk && !admin ? " - gesperrt" : ""}</div>
+            {sel.lk && !admin && <div style={{ padding: 8, background: "#fff3e0", borderRadius: 4, fontSize: 11, color: C.g, marginBottom: 14 }}>CI-geschuetzt</div>}
+
+            {ok(sel) && <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: C.g8, marginBottom: 4 }}>Position</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                <div><label style={{ fontSize: 9, color: C.g8 }}>X</label><input type="number" value={sel.x} onChange={function(e) { upd(sel.id, "x", +e.target.value); }} style={inp} /></div>
+                <div><label style={{ fontSize: 9, color: C.g8 }}>Y</label><input type="number" value={sel.y} onChange={function(e) { upd(sel.id, "y", +e.target.value); }} style={inp} /></div>
+              </div>
+            </div>}
+            {ok(sel) && (sel.t === "image" || sel.t === "rect" || sel.t === "shape" || sel.t === "logo") && <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: C.g8, marginBottom: 4 }}>Groesse</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                <div><label style={{ fontSize: 9, color: C.g8 }}>B</label><input type="number" value={sel.w} onChange={function(e) { upd(sel.id, "w", +e.target.value); }} style={inp} /></div>
+                <div><label style={{ fontSize: 9, color: C.g8 }}>H</label><input type="number" value={sel.h || 0} onChange={function(e) { upd(sel.id, "h", +e.target.value); }} style={inp} /></div>
+              </div>
+            </div>}
+
+            {sel.t === "image" && ok(sel) && <div style={{ marginBottom: 14 }}>
+              <button onClick={function() { setUpId(sel.id); fRef.current.click(); }} style={Object.assign({}, btn1, { marginBottom: 6 })}>{sel.src ? "Ersetzen" : "Hochladen"}</button>
+              {sel.src && <button onClick={function() { upd(sel.id, "src", null); }} style={Object.assign({}, btn2, { color: C.r })}>Entfernen</button>}
+            </div>}
+
+            {(sel.t === "rect" || sel.t === "shape") && ok(sel) && <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: C.g8, marginBottom: 4 }}>{sel.t === "shape" ? "Rahmenfarbe" : "Farbe"}</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {COLORS.map(function(c) {
+                  var active = sel.t === "shape" ? sel.stroke === c.h : sel.fill === c.h;
+                  return <button key={c.h} onClick={function() { if (sel.t === "shape") upd(sel.id, "stroke", c.h); else upd(sel.id, "fill", c.h); }} style={{ width: 24, height: 24, borderRadius: "50%", border: active ? "3px solid " + C.b : "2px solid rgba(0,0,0,0.08)", background: c.h, cursor: "pointer" }} />;
+                })}
+              </div>
+              {sel.t === "shape" && <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 11, color: C.g8, marginBottom: 4 }}>Fuellfarbe</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                  <button onClick={function() { upd(sel.id, "fill", "none"); }} style={{ width: 24, height: 24, borderRadius: "50%", border: sel.fill === "none" ? "3px solid " + C.b : "2px solid rgba(0,0,0,0.08)", background: C.w, cursor: "pointer", position: "relative", overflow: "hidden" }}><div style={{ position: "absolute", top: "50%", left: -2, width: 30, height: 2, background: C.r, transform: "rotate(-45deg)" }} /></button>
+                  {COLORS.map(function(c) { return <button key={c.h} onClick={function() { upd(sel.id, "fill", c.h); }} style={{ width: 24, height: 24, borderRadius: "50%", border: sel.fill === c.h ? "3px solid " + C.b : "2px solid rgba(0,0,0,0.08)", background: c.h, cursor: "pointer" }} />; })}
+                </div>
+              </div>}
+            </div>}
+
+            {sel.t === "text" && ok(sel) && <div>
+              <div style={{ marginBottom: 14 }}><div style={{ fontSize: 11, color: C.g8, marginBottom: 4 }}>Text</div><textarea value={sel.tx} onChange={function(e) { upd(sel.id, "tx", e.target.value); }} rows={3} style={Object.assign({}, inp, { height: "auto", resize: "vertical", lineHeight: 1.4 })} /></div>
+              <div style={{ marginBottom: 14 }}><div style={{ fontSize: 11, color: C.g8, marginBottom: 4 }}>Groesse</div><div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>{FSZ.map(function(s) { return <button key={s} onClick={function() { upd(sel.id, "fs", s); }} style={{ padding: "3px 7px", fontSize: 10, borderRadius: 3, border: "none", cursor: "pointer", background: sel.fs === s ? C.a : C.g1, color: sel.fs === s ? C.w : C.g9 }}>{s}</button>; })}</div></div>
+              <div style={{ marginBottom: 14 }}><div style={{ fontSize: 11, color: C.g8, marginBottom: 4 }}>Gewicht</div><div style={{ display: "flex", border: "1px solid " + C.g5, borderRadius: 5, overflow: "hidden" }}>{FW.map(function(fw) { return <button key={fw.v} onClick={function() { upd(sel.id, "fw", fw.v); }} style={Object.assign({}, tbtn(sel.fw === fw.v), { fontWeight: fw.v, fontSize: 11 })}>{fw.l}</button>; })}</div></div>
+              <div><div style={{ fontSize: 11, color: C.g8, marginBottom: 4 }}>Farbe</div><div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>{COLORS.map(function(c) { return <button key={c.h} onClick={function() { upd(sel.id, "c", c.h); }} style={{ width: 24, height: 24, borderRadius: "50%", border: sel.c === c.h ? "3px solid " + C.b : "2px solid rgba(0,0,0,0.08)", background: c.h, cursor: "pointer" }} />; })}</div></div>
+            </div>}
+          </div> : <div style={{ textAlign: "center", padding: "40px 12px", color: C.g8 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: C.g9 }}>Kein Element</div>
+            <div style={{ fontSize: 12, marginTop: 4 }}>Element im Canvas anklicken.</div>
+          </div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
